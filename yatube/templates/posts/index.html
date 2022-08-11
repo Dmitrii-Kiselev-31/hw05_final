@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load thumbnail %}
+{% block title %} Проект | Yatube{{ title }} {% endblock %}
+{% block content %}
+{% load cache %}
+{% cache 20 page_obj %}
+  <h1>Последние обновления на сайте</h1>
+  {% for post in page_obj %}
+    {% include 'includes/author_date.html' %}
+    {% include 'includes/post_item.html' %}
+    {% if post.group %}
+      <a href="{% url 'posts:group_list' post.group.slug %}">все записи группы</a>
+    {% endif %}
+    {% if not forloop.last %}<hr>{% endif %}
+  {% endfor %}
+  {% include 'includes/paginator.html' %}
+{% endcache %}
+{% endblock %} 
