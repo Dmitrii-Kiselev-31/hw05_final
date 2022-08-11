@@ -69,16 +69,17 @@ class PostCreateFormTests(TestCase):
             follow=True,
         )
 
-        post_1 = get_object_or_404(Post, id=self.group.id)
-        self.assertEqual(PostCreateFormTests.user.username, 'username')
-        self.assertEqual(PostCreateFormTests.group.title, 'Тестовая группа')
-        self.assertTrue(Post.objects.filter(group=self.group.id))
+        post_1 = Post.objects.get(id=self.group.id)
+        author_1 = User.objects.get(username='username')
+        group_1 = Group.objects.get(title='Тестовая группа')
         self.assertEqual(Post.objects.count(), count_posts + 1)
-        self.assertEqual(post_1.text, 'Тестовый текст')
         self.assertRedirects(
             response,
             reverse('posts:profile', kwargs={'username': 'username'})
         )
+        self.assertEqual(post_1.text, 'Тестовый пост')
+        self.assertEqual(author_1.username, 'username')
+        self.assertEqual(group_1.title, 'Тестовая группа')
 
     def test_create_comment(self):
         """Авторизованный пользователь может создать комментарий."""
