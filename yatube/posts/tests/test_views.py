@@ -1,14 +1,13 @@
 import shutil
 import tempfile
 
-from django.test import Client, TestCase
-from django.contrib.auth import get_user_model
-from django.urls import reverse
 from ..forms import PostForm
 from django.conf import settings
-from django.core.files.uploadedfile import SimpleUploadedFile
+from django.contrib.auth import get_user_model
 from django.core.cache import cache
-
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import Client, TestCase
+from django.urls import reverse
 
 from ..models import Group, Post, Follow
 
@@ -142,13 +141,16 @@ class PostsPagesTests(TestCase):
 
     def test_cache_index(self):
 
-        response = self.client.get(reverse('posts:index'))
-        post1 = response.content
-        del_post = Post.objects.filter(id=2)
-        del_post.delete()
-        response = self.client.get(reverse('posts:index'))
-        post2 = response.content
-        self.assertEqual(post1, post2)
+        content = self.authorized_client.get(reverse('posts:index')).content
+        Post.objects.create(
+            text='Пост',
+            author=self.user,
+        )
+        content_1 = self.authorized_client.get(reverse('posts:index')).content
+        self.assertEqual(content, content_1)
+        cache.clear()
+        content_2 = self.authorized_client.get(reverse('posts:index')).content
+        self.assertNotEqual(content_1, content_2)
 
 
 class PaginatorViewsTest(TestCase):

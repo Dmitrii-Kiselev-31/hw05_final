@@ -67,7 +67,7 @@ class StaticURLTests(TestCase):
         for url in not_available_urls:
             with self.subTest(url=url):
                 response = self.guest_client.get(url)
-                self.assertEqual(response.status_code, 302)
+                self.assertEqual(response.status_code, HTTPStatus.FOUND)
 
     def test_edit_url_not_by_author(self):
         """Страница редактирования поста недоступна не автору поста."""

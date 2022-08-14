@@ -1,4 +1,3 @@
-from xml.etree.ElementTree import Comment
 from django.shortcuts import render, get_object_or_404, redirect, reverse
 from django.core.paginator import Paginator
 from django.contrib.auth import get_user_model
@@ -50,17 +49,10 @@ def profile(request, username):
 
 def post_detail(request, post_id):
     post = get_object_or_404(Post, id=post_id)
-    first_30 = post.text[:30]
-    posts_count = post.author.posts.count()
-    is_author = post.author == request.user
     form = CommentForm(request.POST or None)
     comments = Comment.objects.select_related('post').filter(post=post)
     context = {
         'post': post,
-        'post_id': post_id,
-        'first_30': first_30,
-        'posts_count': posts_count,
-        'is_author': is_author,
         'form': form,
         'comments': comments,
     }
@@ -115,10 +107,8 @@ def add_comment(request, post_id):
 @login_required
 def follow_index(request):
     template = 'posts/follow.html'
-    list_of_posts = Post.objects.filter(author__following__user=request.user)
-    paginator = Paginator(list_of_posts, CUTOFF)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    posts = Post.objects.filter(author__following__user=request.user)
+    page_obj = get_page(posts, request)
     context = {'page_obj': page_obj}
     return render(request, template, context)
 
@@ -136,8 +126,5 @@ def profile_follow(request, username):
 
 @login_required
 def profile_unfollow(request, username):
-    author = get_object_or_404(User, username=username)
-    is_follower = Follow.objects.filter(user=request.user, author=author)
-    if is_follower.exists():
-        is_follower.delete()
-    return redirect('posts:profile', username=author)
+    Follow.objects.filter(author__username=username).delete()
+    return redirect('posts:profile', username=username)

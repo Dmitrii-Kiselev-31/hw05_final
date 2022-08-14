@@ -1,13 +1,15 @@
 import shutil
 import tempfile
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
-from ..models import Group, Post, Comment
-from django.conf import settings
 from http import HTTPStatus
-from django.core.files.uploadedfile import SimpleUploadedFile
+
+from ..models import Group, Post, Comment
 
 
 User = get_user_model()
@@ -24,6 +26,11 @@ class PostCreateFormTests(TestCase):
             slug='test-slug',
             description='Тестовое описание'
         )
+        cls.post = Post.objects.create(
+            text='Тестовый пост',
+            group=cls.group,
+            author=cls.user,
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -34,6 +41,10 @@ class PostCreateFormTests(TestCase):
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
+
+    def test_post(self):
+        """Проверка процесса и результата создания поста."""
+        count_posts = Post.objects.count()
         small_gif = (
             b'\x47\x49\x46\x38\x39\x61\x02\x00'
             b'\x01\x00\x80\x00\x00\x00\x00\x00'
@@ -47,20 +58,9 @@ class PostCreateFormTests(TestCase):
             content=small_gif,
             content_type='image/gif'
         )
-        self.post = Post.objects.create(
-            text='Тестовый пост',
-            group=self.group,
-            author=self.user,
-            image=uploaded
-        )
-
-    def test_post(self):
-        """Проверка процесса и результата создания поста."""
-        count_posts = Post.objects.count()
         form_data = {
-            'text': 'Тестовый текст',
-            'group': self.group.id,
-            'image': self.post.image
+            'text': 'Тестовый пост',
+            'image': uploaded
         }
         response = self.authorized_client.post(
             reverse('posts:post_create'),
@@ -68,21 +68,22 @@ class PostCreateFormTests(TestCase):
             follow=True,
         )
 
-        post_1 = Post.objects.get(id=self.group.id)
-        author_1 = User.objects.get(username='username')
-        group_1 = Group.objects.get(title='Тестовая группа')
+        post_1 = Post.objects.latest('pub_date')
+        self.assertEqual(PostCreateFormTests.group.title, 'Тестовая группа')
+        self.assertTrue(Post.objects.filter(group=self.group.id))
         self.assertEqual(Post.objects.count(), count_posts + 1)
+        self.assertEqual(post_1.text, 'Тестовый пост')
         self.assertRedirects(
             response,
             reverse('posts:profile', kwargs={'username': 'username'})
         )
-        self.assertEqual(post_1.text, 'Тестовый пост')
-        self.assertEqual(author_1.username, 'username')
-        self.assertEqual(group_1.title, 'Тестовая группа')
+        self.assertEqual(
+            PostCreateFormTests.post.author, PostCreateFormTests.user
+        )
 
     def test_create_comment(self):
         """Авторизованный пользователь может создать комментарий."""
-        count_comments = Comment.objects.select_related('post').count()
+        count_comments = Comment.objects.count()
         form_data = {'text': 'тестовый комментарий'}
         response = self.authorized_client.post(
             reverse('posts:add_comment',
@@ -90,9 +91,7 @@ class PostCreateFormTests(TestCase):
             data=form_data,
             follow=True
         )
-        comments = Post.objects.filter(id=self.post.pk).values_list(
-            'comments', flat=True
-        )
+        comments = Comment.objects.select_related('post')
         self.assertRedirects(
             response,
             reverse('posts:post_detail', kwargs={'post_id': self.post.pk})
@@ -112,12 +111,11 @@ class PostCreateFormTests(TestCase):
             'text': 'Тестовый текст',
             'group': self.group.id
         }
-        self.authorized_client.post(
-            reverse('posts:post_create'),
-            data=form_data,
-            follow=True,
+        post_2 = Post.objects.create(
+            text='Тестовый текст',
+            author=self.user,
+            group=self.group,
         )
-        post_2 = Post.objects.get(id=self.group.id)
         self.client.get(f'/username/{post_2.id}/edit/')
         form_data = {
             'text': 'Измененный тестовый текст',
@@ -131,6 +129,6 @@ class PostCreateFormTests(TestCase):
             data=form_data,
             follow=True,
         )
-        post_2 = Post.objects.get(id=self.group.id)
+        post_2 = Post.objects.latest('pub_date')
         self.assertEqual(response_edit.status_code, HTTPStatus.OK)
         self.assertEqual(post_2.text, 'Измененный тестовый текст')
