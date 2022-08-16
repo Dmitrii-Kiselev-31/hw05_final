@@ -1,12 +1,12 @@
 import shutil
 import tempfile
+from http import HTTPStatus
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
-from http import HTTPStatus
 
 from ..models import Group, Post, Comment
 
@@ -59,6 +59,7 @@ class PostCreateFormTests(TestCase):
         )
         form_data = {
             'text': 'Тестовый пост',
+            'group': self.group.id,
             'image': uploaded
         }
         response = self.authorized_client.post(
@@ -69,7 +70,7 @@ class PostCreateFormTests(TestCase):
 
         post_1 = Post.objects.latest('pub_date')
         self.assertEqual(PostCreateFormTests.group.title, 'Тестовая группа')
-        self.assertTrue(Post.objects.filter(group=self.group.id))
+        self.assertEqual(post_1.group, self.group)
         self.assertEqual(Post.objects.count(), count_posts + 1)
         self.assertEqual(post_1.text, 'Тестовый пост')
         self.assertRedirects(
@@ -106,16 +107,11 @@ class PostCreateFormTests(TestCase):
 
     def test_authorized_edit_post(self):
         """Авторизованный пользователь может редактировать свой пост."""
-        form_data = {
-            'text': 'Тестовый текст',
-            'group': self.group.id
-        }
         post_2 = Post.objects.create(
             text='Тестовый текст',
             author=self.user,
             group=self.group,
         )
-        self.client.get(f'/username/{post_2.id}/edit/')
         form_data = {
             'text': 'Измененный тестовый текст',
             'group': self.group.id

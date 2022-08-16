@@ -1,8 +1,11 @@
+from http import HTTPStatus
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
 from django.urls import reverse
+
 from ..models import Group, Post
-from http import HTTPStatus
+
 
 User = get_user_model()
 
@@ -73,13 +76,13 @@ class StaticURLTests(TestCase):
         """Страница редактирования поста недоступна не автору поста."""
         response = self.authorized_client_2.get(
             f'/posts/{self.post.id}/edit/')
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
 
     def test_error_404(self):
         """Несуществующая страница возвращает ошибку 404
            и обрабатывается кастомным шаблоном"""
         response = self.guest_client.get('/unexisting_page/')
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
         self.assertTemplateUsed(response, 'core/404.html')
 
     def test_urls_uses_correct_template(self):
